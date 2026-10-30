@@ -19,7 +19,8 @@
 #define MEASURE_WINDOW_MS 100   // input PWM averaging window (multiple of 10)
 #define OUT_PWM_HZ        25000UL
 #define STARTUP_OUTPUT    100   // output % before the first measurement
-#define DIRECTION_DEADBAND 2    // input must move back by >= N % to count as a change of direction
+#define DIRECTION_DEADBAND 5    // input must move back by >= N % to count as a change of direction
+                                // (bigger than the jitter, smaller than the gap between steps)
 
 // ----------------------- MAPPING TABLE ------------------------------
 // Fan behavior on GenMachine YI7000LP
@@ -37,24 +38,27 @@
 // Two separate tables: input PWM (%) from the motherboard -> output PWM (%) to the fan.
 //   RISE - used while the input PWM is going UP
 //   FALL - used while the input PWM is going DOWN
+// The motherboard only sends steps 30 / 40 / 70 / 100 (and 0), so each row
+// covers a step +-3% to absorb measurement jitter.
 // Bounds are inclusive. Rules are checked top to bottom, first match wins.
 // If no rule matches (a gap in the table), the output is HELD at its current value.
 struct Rule { uint8_t in_from; uint8_t in_to; uint8_t out; };
 
 static const Rule RISE[] PROGMEM = {
     //  from   to   output
-    {   0,    39,     0 },
-    {  40,    69,    30 },
-    {  70,    80,    60 },
-    {  81,   100,   100 },
+    {   0,    33,     0 },   // 0 and 30 -> 0
+    {  37,    43,    30 },   // 40
+    {  67,    73,    60 },   // 70
+    {  97,   100,   100 },   // 100
 };
 
 static const Rule FALL[] PROGMEM = {
     //  from   to   output
-    {   0,    29,     0 },
-    {  30,    69,    30 },
-    {  70,    74,    60 },
-    {  75,   100,   100 },   // stays at 100% on the way down until input < 75
+    {   0,    26,     0 },   // 0
+    {  27,    33,    30 },   // 30 -> stays 30 on the way down
+    {  37,    43,    30 },   // 40
+    {  67,    73,    60 },   // 70
+    {  97,   100,   100 },   // 100
 };
 
 // ===================================================================
